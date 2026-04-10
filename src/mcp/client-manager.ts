@@ -50,7 +50,21 @@ export class McpClientManager {
       );
     }
 
-    const { tools } = await client.listTools();
+    let tools: Tool[];
+    try {
+      const result = await client.listTools();
+      tools = result.tools;
+    } catch (err) {
+      try {
+        await client.close();
+      } catch {
+        // Ignore errors during cleanup
+      }
+      throw new ConnectionError(
+        `Connected to '${name}' but failed to list tools: ${err instanceof Error ? err.message : String(err)}`,
+        name
+      );
+    }
     logger.debug(`Connected to '${name}' with ${tools.length} tool(s)`);
 
     const server: ConnectedServer = { name, config, client, tools, status: 'connected' };

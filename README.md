@@ -33,7 +33,7 @@ node dist/index.js --help
 mcp setup
 ```
 
-This walks you through selecting popular MCP servers and writes a `mcp.json` config file in the current directory.
+This walks you through adding a custom MCP server using either `stdio` or `http` transport and writes an `mcp.json` config file in the current directory.
 
 ### 2. List servers and tools
 
@@ -68,7 +68,7 @@ mcp repl --model gpt-4o
 
 ### Requirements
 
-- Node.js 18+
+- Node.js 20+
 - npm 9+
 
 ### From source
@@ -341,7 +341,7 @@ No `mcp.json` found. Run `mcp setup` or create one manually.
 
 #### `Connection error for server 'X': spawn npx ENOENT`
 
-`npx` is not available. Ensure Node.js 18+ is installed and in `PATH`.
+`npx` is not available. Ensure Node.js 20+ is installed and in `PATH`.
 
 #### `Connection error: timed out after 30000ms`
 
