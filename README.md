@@ -52,7 +52,7 @@ mcp ask "What are the open issues in my repo labeled 'bug'?"
 ### 4. Call a tool directly
 
 ```bash
-mcp call github list_issues --args '{"owner":"my-org","repo":"my-repo","state":"open"}'
+mcp call github.list_issues --args '{"owner":"my-org","repo":"my-repo","state":"open"}'
 ```
 
 ### 5. Start interactive REPL
@@ -233,19 +233,16 @@ mcp ask "..." --json                              # machine-readable output
 Options:
 - `-m, --model <model>` – override the default model
 
-### `mcp call <server> <tool> [args]`
+### `mcp call <server.tool>`
 
-Call an MCP tool directly, bypassing Copilot orchestration.
+Call an MCP tool directly, bypassing Copilot orchestration. Uses dot notation: `server.tool`.
 
 ```bash
-# Pass args as positional JSON string
-mcp call github list_issues '{"owner":"my-org","repo":"my-repo"}'
-
-# Or use the --args flag
-mcp call github list_issues --args '{"owner":"my-org","repo":"my-repo","state":"open"}'
+# Pass args with the --args flag
+mcp call github.list_issues --args '{"owner":"my-org","repo":"my-repo","state":"open"}'
 
 # JSON output
-mcp call filesystem read_file --args '{"path":"./README.md"}' --json
+mcp call filesystem.read_file --args '{"path":"./README.md"}' --json
 ```
 
 ### `mcp repl`
@@ -260,7 +257,10 @@ mcp repl --yes            # auto-approve all tool calls
 
 Inside the REPL:
 - Type any prompt and press Enter to chat with Copilot
-- Type `exit` or `quit` (or press Ctrl+C) to exit
+- `/tools` — list available tools
+- `/servers` — list connected servers
+- `/clear` — reset conversation
+- `/exit` — quit (or type `exit`, `quit`, Ctrl+C)
 
 ---
 

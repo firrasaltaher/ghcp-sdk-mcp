@@ -1,7 +1,8 @@
 import type { Command } from 'commander';
-import chalk from 'chalk';
+import ora from 'ora';
 import { loadConfig } from '../../config/loader.js';
 import { McpClientManager } from '../../mcp/client-manager.js';
+import { outputServers, outputTools } from '../output.js';
 import { formatError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
 
@@ -16,28 +17,35 @@ export function registerListCommands(program: Command): void {
     .action(async () => {
       try {
         const config = loadConfig(program.opts().config as string | undefined);
-        const servers = Object.entries(config.servers);
+        const entries = Object.entries(config.servers);
 
-        if (program.opts().json) {
-          console.log(JSON.stringify({ servers: config.servers }, null, 2));
-          return;
-        }
-
-        if (servers.length === 0) {
+        if (entries.length === 0) {
           logger.warn('No servers configured. Run `mcp setup` to add servers.');
           return;
         }
 
-        console.log(chalk.bold('\nConfigured MCP Servers:\n'));
-        for (const [name, serverConfig] of servers) {
-          const typeLabel = chalk.cyan(`[${serverConfig.type}]`);
-          const detail =
-            serverConfig.type === 'stdio'
-              ? chalk.gray(`${serverConfig.command} ${serverConfig.args.join(' ')}`)
-              : chalk.gray(serverConfig.url);
-          console.log(`  ${chalk.green(name)} ${typeLabel} ${detail}`);
-        }
-        console.log();
+        const manager = new McpClientManager(config.defaults.timeout);
+        const spinner = ora('Connecting to MCP servers...').start();
+        const { connected, failed } = await manager.connectAll(config);
+        spinner.stop();
+
+        const serverInfos = entries.map(([name, serverConfig]) => {
+          const conn = connected.find((c) => c.name === name);
+          return {
+            name,
+            type: serverConfig.type,
+            status: conn ? 'connected' : failed.includes(name) ? 'error' : 'disconnected',
+            detail:
+              serverConfig.type === 'stdio'
+                ? `${serverConfig.command} ${serverConfig.args.join(' ')}`
+                : serverConfig.url,
+            toolCount: conn?.tools.length ?? 0,
+            error: failed.includes(name) ? 'connection failed' : undefined,
+          };
+        });
+
+        outputServers(serverInfos, { json: program.opts().json as boolean });
+        await manager.disconnectAll();
       } catch (err) {
         logger.error(formatError(err, program.opts().debug as boolean));
         process.exit(1);
@@ -48,34 +56,38 @@ export function registerListCommands(program: Command): void {
     .command('tools [server]')
     .description('List tools from a specific server or all servers')
     .action(async (server?: string) => {
-      const manager = new McpClientManager();
+      const config = loadConfig(program.opts().config as string | undefined);
+      const manager = new McpClientManager(config.defaults.timeout);
       try {
-        const config = loadConfig(program.opts().config as string | undefined);
-
         if (server) {
           const serverConfig = config.servers[server];
           if (!serverConfig) {
             logger.error(`Server '${server}' not found in config`);
             process.exit(1);
           }
+          const spinner = ora(`Connecting to ${server}...`).start();
           const connected = await manager.connect(server, serverConfig);
-          printTools(server, connected.tools, program.opts().json as boolean);
+          spinner.stop();
+          outputTools(server, connected.tools, { json: program.opts().json as boolean });
         } else {
-          const allServers = await manager.connectAll(config);
-          if (allServers.length === 0) {
-            logger.warn('No servers configured. Run `mcp setup` to add servers.');
+          const spinner = ora('Connecting to MCP servers...').start();
+          const { connected } = await manager.connectAll(config);
+          spinner.stop();
+
+          if (connected.length === 0) {
+            logger.warn('No servers connected. Run `mcp setup` to add servers.');
             return;
           }
           if (program.opts().json) {
             const output: Record<string, unknown> = {};
-            for (const s of allServers) {
+            for (const s of connected) {
               output[s.name] = s.tools;
             }
             console.log(JSON.stringify(output, null, 2));
             return;
           }
-          for (const s of allServers) {
-            printTools(s.name, s.tools, false);
+          for (const s of connected) {
+            outputTools(s.name, s.tools);
           }
         }
       } catch (err) {
@@ -85,28 +97,4 @@ export function registerListCommands(program: Command): void {
         await manager.disconnectAll();
       }
     });
-}
-
-function printTools(
-  serverName: string,
-  tools: Array<{ name: string; description?: string; inputSchema?: unknown }>,
-  asJson: boolean
-): void {
-  if (asJson) {
-    console.log(JSON.stringify({ server: serverName, tools }, null, 2));
-    return;
-  }
-
-  console.log(chalk.bold(`\nTools from ${chalk.green(serverName)}:\n`));
-  if (tools.length === 0) {
-    console.log(chalk.gray('  (no tools available)'));
-    return;
-  }
-  for (const tool of tools) {
-    console.log(`  ${chalk.cyan(tool.name)}`);
-    if (tool.description) {
-      console.log(`    ${chalk.gray(tool.description)}`);
-    }
-  }
-  console.log();
 }

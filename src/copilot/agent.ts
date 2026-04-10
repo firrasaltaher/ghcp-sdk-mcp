@@ -64,14 +64,15 @@ function makePermissionHandler(
   }
 
   if (toolApproval === 'allowlist' && allowlist) {
-    return async (request: PermissionRequest, ctx) => {
-      const toolName = (request as Record<string, unknown>)['toolName'] as string | undefined;
-      if (toolName && allowlist.includes(toolName)) {
+    return async (request: PermissionRequest) => {
+      // PermissionRequest has [key: string]: unknown, so toolName may be present
+      const toolName = String((request as Record<string, unknown>)['toolName'] ?? 'unknown');
+      if (allowlist.includes(toolName)) {
         return { kind: 'approved' as const };
       }
       return {
         kind: 'denied-by-permission-request-hook' as const,
-        message: `Tool '${toolName ?? 'unknown'}' not in allowlist`,
+        message: `Tool '${toolName}' not in allowlist`,
       };
     };
   }

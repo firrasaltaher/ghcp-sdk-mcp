@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { loadConfig } from '../../config/loader.js';
 import { CopilotAgent } from '../../copilot/agent.js';
+import { outputJSON } from '../output.js';
 import { formatError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
 
@@ -25,7 +26,7 @@ export function registerAskCommand(program: Command): void {
         spinner.stop();
 
         if (program.opts().json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJSON(result);
         } else {
           console.log(chalk.bold('\nCopilot:\n'));
           console.log(result.content);

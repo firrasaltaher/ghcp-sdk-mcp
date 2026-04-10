@@ -3,19 +3,31 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { loadConfig } from '../../config/loader.js';
 import { McpClientManager } from '../../mcp/client-manager.js';
+import { outputToolResult } from '../output.js';
 import { formatError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
 
 export function registerCallCommand(program: Command): void {
   program
-    .command('call <server> <tool> [args]')
-    .description('Call a tool on an MCP server')
+    .command('call <server_tool>')
+    .description('Call a tool on an MCP server (format: server.tool)')
     .option('-a, --args <json>', 'tool arguments as JSON string')
-    .action(async (server: string, tool: string, _args: string | undefined, opts: { args?: string }) => {
+    .allowUnknownOption(true)
+    .action(async (serverTool: string, opts: { args?: string }, cmd) => {
       const manager = new McpClientManager();
-      const spinner = ora(`Calling ${chalk.cyan(tool)} on ${chalk.green(server)}...`).start();
 
       try {
+        // Parse server.tool dot notation
+        const dotIndex = serverTool.indexOf('.');
+        if (dotIndex === -1) {
+          logger.error('Invalid format. Use: mcp call <server>.<tool>\nExample: mcp call github.list_repos --args \'{"owner":"microsoft"}\'');
+          process.exit(1);
+        }
+        const server = serverTool.substring(0, dotIndex);
+        const tool = serverTool.substring(dotIndex + 1);
+
+        const spinner = ora(`Calling ${chalk.cyan(tool)} on ${chalk.green(server)}...`).start();
+
         const config = loadConfig(program.opts().config as string | undefined);
         const serverConfig = config.servers[server];
         if (!serverConfig) {
@@ -26,7 +38,8 @@ export function registerCallCommand(program: Command): void {
         await manager.connect(server, serverConfig);
 
         let toolArgs: Record<string, unknown> = {};
-        const rawArgs = opts.args ?? _args;
+        // Parse --args flag or remaining positional args
+        const rawArgs = opts.args ?? cmd.args[0];
         if (rawArgs) {
           try {
             const parsed = JSON.parse(rawArgs) as unknown;
@@ -43,36 +56,13 @@ export function registerCallCommand(program: Command): void {
         const result = await manager.callTool(server, tool, toolArgs);
         spinner.succeed(`Tool '${tool}' executed successfully`);
 
-        if (program.opts().json) {
-          console.log(JSON.stringify({ server, tool, args: toolArgs, result }, null, 2));
-        } else {
-          console.log(chalk.bold('\nResult:\n'));
-          console.log(formatToolResult(result));
-        }
+        console.log(chalk.bold('\nResult:\n'));
+        outputToolResult(result, { json: program.opts().json as boolean });
       } catch (err) {
-        spinner.fail(formatError(err, program.opts().debug as boolean));
-        logger.debug(String(err));
+        logger.error(formatError(err, program.opts().debug as boolean));
         process.exit(1);
       } finally {
         await manager.disconnectAll();
       }
     });
-}
-
-function formatToolResult(result: unknown): string {
-  if (result === null || result === undefined) return chalk.gray('(no result)');
-
-  if (typeof result === 'object') {
-    const r = result as Record<string, unknown>;
-    // MCP CallToolResult has a `content` array
-    if (Array.isArray(r['content'])) {
-      return (r['content'] as Array<{ type: string; text?: string }>)
-        .filter((c) => c.type === 'text' && c.text)
-        .map((c) => c.text!)
-        .join('\n');
-    }
-    return JSON.stringify(result, null, 2);
-  }
-
-  return String(result);
 }
