@@ -16,18 +16,19 @@ export function registerCallCommand(program: Command): void {
     .action(async (serverTool: string, opts: { args?: string }, cmd) => {
       const manager = new McpClientManager();
 
+      // Parse server.tool dot notation
+      const dotIndex = serverTool.indexOf('.');
+      if (dotIndex === -1) {
+        logger.error('Invalid format. Use: mcp call <server>.<tool>');
+        logger.error('Example: mcp call github.list_repos --args \'{"owner":"microsoft"}\'');
+        process.exit(1);
+      }
+      const server = serverTool.substring(0, dotIndex);
+      const tool = serverTool.substring(dotIndex + 1);
+
+      const spinner = ora(`Calling ${chalk.cyan(tool)} on ${chalk.green(server)}...`).start();
+
       try {
-        // Parse server.tool dot notation
-        const dotIndex = serverTool.indexOf('.');
-        if (dotIndex === -1) {
-          logger.error('Invalid format. Use: mcp call <server>.<tool>\nExample: mcp call github.list_repos --args \'{"owner":"microsoft"}\'');
-          process.exit(1);
-        }
-        const server = serverTool.substring(0, dotIndex);
-        const tool = serverTool.substring(dotIndex + 1);
-
-        const spinner = ora(`Calling ${chalk.cyan(tool)} on ${chalk.green(server)}...`).start();
-
         const config = loadConfig(program.opts().config as string | undefined);
         const serverConfig = config.servers[server];
         if (!serverConfig) {
@@ -38,7 +39,6 @@ export function registerCallCommand(program: Command): void {
         await manager.connect(server, serverConfig);
 
         let toolArgs: Record<string, unknown> = {};
-        // Parse --args flag or remaining positional args
         const rawArgs = opts.args ?? cmd.args[0];
         if (rawArgs) {
           try {
@@ -59,7 +59,7 @@ export function registerCallCommand(program: Command): void {
         console.log(chalk.bold('\nResult:\n'));
         outputToolResult(result, { json: program.opts().json as boolean });
       } catch (err) {
-        logger.error(formatError(err, program.opts().debug as boolean));
+        spinner.fail(formatError(err, program.opts().debug as boolean));
         process.exit(1);
       } finally {
         await manager.disconnectAll();

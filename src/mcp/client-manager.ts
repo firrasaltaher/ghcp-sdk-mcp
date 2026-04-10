@@ -18,6 +18,7 @@ export class McpClientManager {
   private connections = new Map<string, ConnectedServer>();
   private timeout: number;
 
+  /** @param timeout Connection and tool call timeout in milliseconds (default: 30000) */
   constructor(timeout = 30000) {
     this.timeout = timeout;
   }

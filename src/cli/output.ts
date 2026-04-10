@@ -5,6 +5,11 @@ export interface OutputOptions {
   table?: boolean;
 }
 
+const COL_NAME = 16;
+const COL_TYPE = 8;
+const COL_STATUS = 14;
+const COL_TOOLS = 6;
+
 export function outputJSON(data: unknown): void {
   console.log(JSON.stringify(data, null, 2));
 }
@@ -26,7 +31,7 @@ export function outputServers(
   console.log(chalk.bold('\nConfigured MCP Servers:\n'));
   console.log(
     chalk.gray(
-      `  ${'Name'.padEnd(16)} ${'Type'.padEnd(8)} ${'Status'.padEnd(14)} ${'Tools'.padEnd(6)} Detail`
+      `  ${'Name'.padEnd(COL_NAME)} ${'Type'.padEnd(COL_TYPE)} ${'Status'.padEnd(COL_STATUS)} ${'Tools'.padEnd(COL_TOOLS)} Detail`
     )
   );
   console.log(chalk.gray('  ' + '─'.repeat(70)));
@@ -39,7 +44,7 @@ export function outputServers(
           ? chalk.red('✗ error')
           : chalk.gray('○ disconnected');
     console.log(
-      `  ${chalk.bold(s.name.padEnd(16))} ${chalk.cyan(s.type.padEnd(8))} ${statusIcon.padEnd(14)} ${String(s.toolCount).padEnd(6)} ${chalk.gray(s.detail)}`
+      `  ${chalk.bold(s.name.padEnd(COL_NAME))} ${chalk.cyan(s.type.padEnd(COL_TYPE))} ${statusIcon.padEnd(COL_STATUS)} ${String(s.toolCount).padEnd(COL_TOOLS)} ${chalk.gray(s.detail)}`
     );
     if (s.error) {
       console.log(chalk.red(`    error: ${s.error}`));
