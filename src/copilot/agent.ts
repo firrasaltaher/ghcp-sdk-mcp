@@ -80,19 +80,23 @@ function makePermissionHandler(
 
   // Default: interactively prompt the user for approval
   return async (request: PermissionRequest) => {
+    // PermissionRequest uses [key: string]: unknown, so toolName must be accessed via assertion
     const toolName = String((request as Record<string, unknown>)['toolName'] ?? 'unknown');
     const rl = createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await new Promise<string>((resolve) =>
-      rl.question(`Allow tool call '${toolName}'? (y/n): `, resolve)
-    );
-    rl.close();
-    if (answer.trim().toLowerCase() === 'y' || answer.trim().toLowerCase() === 'yes') {
-      return { kind: 'approved' as const };
+    try {
+      const answer = await new Promise<string>((resolve) =>
+        rl.question(`Allow tool call '${toolName}'? (y/n): `, resolve)
+      );
+      if (answer.trim().toLowerCase() === 'y' || answer.trim().toLowerCase() === 'yes') {
+        return { kind: 'approved' as const };
+      }
+      return {
+        kind: 'denied-by-permission-request-hook' as const,
+        message: `Tool '${toolName}' denied by user.`,
+      };
+    } finally {
+      rl.close();
     }
-    return {
-      kind: 'denied-by-permission-request-hook' as const,
-      message: `Tool '${toolName}' denied by user.`,
-    };
   };
 }
 
