@@ -28,10 +28,14 @@ registerAskCommand(program);
 registerSetupCommand(program);
 registerReplCommand(program);
 
-program.action(() => {
-  import('./cli/commands/repl.js').then(({ startRepl }) => {
-    startRepl();
-  });
+program.action(async () => {
+  try {
+    const { startRepl } = await import('./cli/commands/repl.js');
+    await startRepl({ program });
+  } catch (error) {
+    console.error('Failed to start REPL:', error);
+    process.exitCode = 1;
+  }
 });
 
 program.parse(process.argv);

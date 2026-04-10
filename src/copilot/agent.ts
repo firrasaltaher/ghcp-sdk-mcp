@@ -7,6 +7,7 @@ import type {
   PermissionRequest,
 } from '@github/copilot-sdk';
 import type { CopilotSession } from '@github/copilot-sdk';
+import { createInterface } from 'readline';
 import type { Config, ServerConfig } from '../config/schema.js';
 import { logger } from '../utils/logger.js';
 
@@ -77,12 +78,20 @@ function makePermissionHandler(
     };
   }
 
-  // Default: deny and prompt user to use --yes flag
-  return async (_request: PermissionRequest) => {
-    logger.warn('Tool call requires permission. Use --yes or set toolApproval: "auto" in config.');
+  // Default: interactively prompt the user for approval
+  return async (request: PermissionRequest) => {
+    const toolName = String((request as Record<string, unknown>)['toolName'] ?? 'unknown');
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise<string>((resolve) =>
+      rl.question(`Allow tool call '${toolName}'? (y/n): `, resolve)
+    );
+    rl.close();
+    if (answer.trim().toLowerCase() === 'y' || answer.trim().toLowerCase() === 'yes') {
+      return { kind: 'approved' as const };
+    }
     return {
       kind: 'denied-by-permission-request-hook' as const,
-      message: 'Denied by default. Use --yes to auto-approve.',
+      message: `Tool '${toolName}' denied by user.`,
     };
   };
 }
